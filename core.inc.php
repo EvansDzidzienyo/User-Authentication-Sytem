@@ -1,90 +1,39 @@
-
-
 <?php
-
-ob_start();
-session_start();
-$current_file = $_SERVER['SCRIPT_NAME'];
-
-if(isset($_SERVER['HTTP_REFERER'])&&!empty($_SERVER['HTTP_REFERER'])){
-$http_referer = $_SERVER['HTTP_REFERER'];
+// Use secure cookie settings when HTTPS is enabled by the hosting environment.
+$isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_set_cookie_params([
+        'httponly' => true,
+        'secure' => $isHttps,
+        'samesite' => 'Lax',
+    ]);
+    session_start();
 }
 
-// Function to check if the user is logged in
-function loggedin() {
-    return (isset($_SESSION['user_id']) && !empty($_SESSION['user_id']));
+function loggedin(): bool
+{
+    return isset($_SESSION['user_id']) && (int) $_SESSION['user_id'] > 0;
 }
 
+function getuserfield(mysqli $conn, string $field): ?string
+{
+    $allowedFields = ['username', 'firstname', 'surname'];
+    if (!loggedin() || !in_array(strtolower($field), $allowedFields, true)) {
+        return null;
+    }
 
-function getuserfield($conn, $field){
-	$user_id = $_SESSION['user_id'];
-	 // Prepare the query with proper escaping
-    $query = "SELECT `$field` FROM `regis` WHERE `id` = ?";
-	
-	if ($stmt = mysqli_prepare($conn, $query)) {
-        // Bind parameters
-        mysqli_stmt_bind_param($stmt, 'i', $user_id);
-        // Execute the query
-        mysqli_stmt_execute($stmt);
-        // Get the result
-        $result = mysqli_stmt_get_result($stmt);
-		
-		
-		if ($row = mysqli_fetch_assoc($result)) {
-            return $row[$field]
-			;
-			
-		}
-		
-		
-	}
-	 
+    $field = strtolower($field);
+    $stmt = mysqli_prepare($conn, "SELECT `$field` FROM `register` WHERE `id` = ? LIMIT 1");
+    if (!$stmt) {
+        error_log('Could not prepare user lookup: ' . mysqli_error($conn));
+        return null;
+    }
+    $userId = (int) $_SESSION['user_id'];
+    mysqli_stmt_bind_param($stmt, 'i', $userId);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = $result ? mysqli_fetch_assoc($result) : null;
+    mysqli_stmt_close($stmt);
+    return $row ? (string) $row[$field] : null;
 }
-
-
 ?>
-
-
-
-
-
-
-
-
-
-
-
-<?php/*
-ob_start();
-session_start();
-$current_file = $_SERVER['SCRIPT_NAME'];
-
-if(isset($_SERVER['HTTP_REFERER'])&&!empty($_SERVER['HTTP_REFERER'])){
-$http_referer = $_SERVER['HTTP_REFERER'];
-}
-
-function loggedin(){
-	if(isset($_SESSION['user_id'])&&!empty($_SESSION['user_id'])){
-		return true;
-		
-		
-	}else{return false;}
-	
-}
-
-
-function getuserfield($conn, $field){
-	$query="SELECT `$field` FROM `regis` WHERE `id`='".$_SESSION['user_id']."'";
-	if($query_run=mysqli_query($conn, $query)){
-		if($mysql_result=mysqli_fetch_assoc($query_run)){
-			return $mysql_result;
-			
-		}
-		
-		
-	}
-	 
-}
-
-
-*/?>
