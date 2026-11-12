@@ -1,5 +1,5 @@
 <?php
-// Use secure cookie settings when HTTPS is enabled by the hosting environment.
+// Session cookies are HTTP-only and SameSite=Lax. HTTPS deployments also set Secure.
 $isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_set_cookie_params([
@@ -15,14 +15,29 @@ function loggedin(): bool
     return isset($_SESSION['user_id']) && (int) $_SESSION['user_id'] > 0;
 }
 
+function csrf_token(): string
+{
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function csrf_is_valid(): bool
+{
+    $submitted = (string) ($_POST['csrf_token'] ?? '');
+    $stored = (string) ($_SESSION['csrf_token'] ?? '');
+    return $submitted !== '' && $stored !== '' && hash_equals($stored, $submitted);
+}
+
 function getuserfield(mysqli $conn, string $field): ?string
 {
     $allowedFields = ['username', 'firstname', 'surname'];
-    if (!loggedin() || !in_array(strtolower($field), $allowedFields, true)) {
+    $field = strtolower($field);
+    if (!loggedin() || !in_array($field, $allowedFields, true)) {
         return null;
     }
 
-    $field = strtolower($field);
     $stmt = mysqli_prepare($conn, "SELECT `$field` FROM `register` WHERE `id` = ? LIMIT 1");
     if (!$stmt) {
         error_log('Could not prepare user lookup: ' . mysqli_error($conn));
