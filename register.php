@@ -1,134 +1,97 @@
+<?php
+require_once __DIR__ . '/core.inc.php';
+require_once __DIR__ . '/connect.php';
 
+$errorMessage = '';
+$username = trim((string) ($_POST['username'] ?? ''));
+$firstname = trim((string) ($_POST['firstname'] ?? ''));
+$surname = trim((string) ($_POST['surname'] ?? ''));
 
-<!doctype>
+if (loggedin()) {
+    header('Location: loggedin.php');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $passwordInput = (string) ($_POST['password'] ?? '');
+    $passwordAgain = (string) ($_POST['password_again'] ?? '');
+
+    if (!csrf_is_valid()) {
+        $errorMessage = 'Your session token is invalid. Refresh the page and try again.';
+    } elseif ($username === '' || $firstname === '' || $surname === '' || $passwordInput === '' || $passwordAgain === '') {
+        $errorMessage = 'All fields are required.';
+    } elseif (mb_strlen($username) > 30 || mb_strlen($firstname) > 40 || mb_strlen($surname) > 40) {
+        $errorMessage = 'One or more fields exceed the allowed length.';
+    } elseif (strlen($passwordInput) < 10) {
+        $errorMessage = 'Use a password with at least 10 characters.';
+    } elseif ($passwordInput !== $passwordAgain) {
+        $errorMessage = 'The passwords do not match.';
+    } else {
+        $check = mysqli_prepare($conn, 'SELECT id FROM register WHERE username = ? LIMIT 1');
+        if ($check) {
+            mysqli_stmt_bind_param($check, 's', $username);
+            mysqli_stmt_execute($check);
+            $existing = mysqli_stmt_get_result($check);
+            $taken = $existing && mysqli_num_rows($existing) > 0;
+            mysqli_stmt_close($check);
+
+            if ($taken) {
+                $errorMessage = 'That username is already in use.';
+            } else {
+                $hash = password_hash($passwordInput, PASSWORD_DEFAULT);
+                $insert = mysqli_prepare($conn, 'INSERT INTO register (username, password, firstname, surname) VALUES (?, ?, ?, ?)');
+                if ($insert) {
+                    mysqli_stmt_bind_param($insert, 'ssss', $username, $hash, $firstname, $surname);
+                    if (mysqli_stmt_execute($insert)) {
+                        mysqli_stmt_close($insert);
+                        header('Location: login.php?registered=1');
+                        exit;
+                    }
+                    error_log('Registration insert failed: ' . mysqli_stmt_error($insert));
+                    mysqli_stmt_close($insert);
+                }
+                $errorMessage = 'Registration could not be completed. Please try again.';
+            }
+        } else {
+            error_log('Registration lookup preparation failed: ' . mysqli_error($conn));
+            $errorMessage = 'Registration is temporarily unavailable.';
+        }
+    }
+}
+?>
+<!doctype html>
 <html lang="en">
-
 <head>
-
-<title>SIGN UP</title>
-
-<link rel="stylesheet" type="text/css" href="page.css"/>
-<link rel="stylesheet" type="text/css" href="inputs.css">
-
-<style type="text/css">
-#n{color:red; font-size:30px;}
-#a{color:orange; font-size:30px;}
-#m{color:green; font-size:30px;}
-#e{color:black; font-size:30px; font-weight:bold font-family:}
-
-fieldset{background-color:rgba(247, 236, 236, 1);}
-body  {background:url("pb.jpg");}
-header{background-color:#000033; color:white;}
-footer{background-color:#000033;color:white;}
-
-legend{ color:#330000; font-size:22px; font-family:ravie;}
-    #p{font-weight:bold; color:deeppink; background:white; font-size:17.3px; padding-top:9px; font-family:segoe print; border-radius:7px;}
-	h3{color:salmon; font-weight:bold; text-align:center; font-family: }
-	#mes{color:red; font-family:candara; padding-right:400px text-align:center; font-weight:bold; font-size:100px;}
-	#forms{padding-right:400px}
-
-</style>
-
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create an account</title>
+    <link rel="stylesheet" href="page.css">
+    <link rel="stylesheet" href="inputs.css">
 </head>
-
-
 <body>
 <section id="wrapper">
-<header>
-<h1>SIGN UP.</h1>
-</header>
-
-
-
-
-<?php
-require 'core.inc.php';
-require 'connect.php';
-
-if(!loggedin()){
-	if(isset($_POST['username'])&&isset($_POST['password'])&&
-	isset($_POST['password_again'])&&isset($_POST['firstname'])&&isset($_POST['surname'])){
-		
-		$username=$_POST['username'];
-		$password=$_POST['password'];
-		
-		$password_hash=md5($password);
-		
-		$password_again=$_POST['password_again'];  
-		$firstname=$_POST['firstname'];
-		$surname=$_POST['surname'];
-		
-		
-if(!empty($username)&&!empty($password)&&!empty($password_again)&&!empty($firstname)&&!empty($surname)){
-	
-	if(strlen($username)>20&&strlen($firstname)>30&&strlen($surname)>30){echo'<html><span id = "mes">why u wanna mess around.fool';}else{
-	
-if(strlen($password)<6){echo '<html><span id = "mes">password should be at least six characters';}else{
-	if($password!=$password_again){
-	echo '<html><span id="mes">*passwords must be equal*</span></html>';	
-		
-	}else{
-		
-		
-		$query = "SELECT `username` FROM `register` WHERE `username`='$username'";
-		$query_run = mysqli_query($conn, $query);
-		
-		if(mysqli_num_rows($query_run)==1){
-			echo '<html><span id = "mes">username already in use.</html>';
-			
-		}else{
-			
-		$query="INSERT INTO `register` VALUES('', '$username', '$password_hash', '$firstname','$surname')";
-		if($query_run=mysqli_query($conn, $query)){
-			header('Location: registered.php');
-			echo 'Registered successfully.Now you can log in by clicking Login/Register';
-			
-			
-		}else{echo 'could not register at the moment';}
-			
-		}
-		
-		
-	}
-	}
-}
-}else{echo'<html><span id = "mes">All Fields Required</span></html>';}	
-	
-			
-	}
-	
-?>
-	<form action="register.php" method="POST">
-	<fieldset>
-	<legend >Fill out the forms to register:</legend><hr>
-
-	<span id="e">Username:<br><input type="text" name="username"  placeholder="username" maxlength="20" value="<?php if(isset($username)){echo $username;}?>" ><br><br>
-	<span id="e">Password:<br><input type="password" name="password" placeholder="password"  /><br><br>
-	<span id="e">Password again:<br><input type="password" name="password_again" placeholder="re-enter password"/><br><br>
-	<span id="e">Firstname:<br><input type="text" name="firstname"   placeholder="firstname" maxlength="30" value="<?php if(isset($firstname)){echo $firstname;}?>" /><br><br>
-	<span id="e">Surname:<br><input type="text" name="surname"   placeholder="surname" maxlength="30" value="<?php if(isset($surname)){echo $surname;}?>" /><br><br>
-	<input type="submit" value="Register"/> 
-	
-
-	</form>
-
-
-or <br>
-
-<form id=forms action="index.php" method='POST'>
-<input type= "submit" value="Log in">
+<header><h1>Create an account</h1></header>
+<?php if ($errorMessage !== ''): ?>
+    <p role="alert"><?php echo htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8'); ?></p>
+<?php endif; ?>
+<form action="register.php" method="post">
+    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
+    <fieldset>
+        <legend>Registration details</legend>
+        <label for="username">Username</label><br>
+        <input id="username" type="text" name="username" maxlength="30" required autocomplete="username" value="<?php echo htmlspecialchars($username, ENT_QUOTES, 'UTF-8'); ?>"><br><br>
+        <label for="password">Password (at least 10 characters)</label><br>
+        <input id="password" type="password" name="password" minlength="10" required autocomplete="new-password"><br><br>
+        <label for="password_again">Confirm password</label><br>
+        <input id="password_again" type="password" name="password_again" minlength="10" required autocomplete="new-password"><br><br>
+        <label for="firstname">First name</label><br>
+        <input id="firstname" type="text" name="firstname" maxlength="40" required value="<?php echo htmlspecialchars($firstname, ENT_QUOTES, 'UTF-8'); ?>"><br><br>
+        <label for="surname">Surname</label><br>
+        <input id="surname" type="text" name="surname" maxlength="40" required value="<?php echo htmlspecialchars($surname, ENT_QUOTES, 'UTF-8'); ?>"><br><br>
+        <button type="submit">Register</button>
+    </fieldset>
 </form>
-	
-	
-<?php
-}else if(loggedin()){
-	echo 'u are already logged n and registered';
-	
-}
-
-
-?>
+<p>Already registered? <a href="login.php">Log in</a>.</p>
 </section>
-  </body>
-  </html>
-  
+</body>
+</html>
