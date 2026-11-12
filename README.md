@@ -10,7 +10,7 @@ A small learning project demonstrating user registration, password verification 
 - HTML and CSS
 
 ## Local setup
-1. Install PHP 8+ and MySQL/MariaDB (XAMPP or another local stack is suitable).
+1. Install PHP 8+ with the `mysqli` and `mbstring` extensions, plus MySQL/MariaDB (XAMPP or another local stack is suitable).
 2. Create a database named `mydatabase` or set `DB_NAME` to your chosen database.
 3. Import `database.sql`.
 4. Configure `DB_HOST`, `DB_USER`, `DB_PASSWORD` and `DB_NAME` as environment variables where possible. The defaults in `connect.php` are intended only for local development.
@@ -21,6 +21,8 @@ A small learning project demonstrating user registration, password verification 
 - Legacy 32-character MD5 hashes are verified only for migration, then replaced with a modern password hash after a successful login. MD5 is not used for new registrations.
 - Database operations use prepared statements.
 - Session IDs are regenerated after successful authentication; session cookies use `HttpOnly`, `SameSite=Lax`, and `Secure` when HTTPS is active.
+- Login, registration and logout requests use session-bound CSRF tokens.
+- The authenticated page is `loggedin.php`; logout is a POST request handled by `logout.php`.
 - User-supplied text is escaped before it is rendered in HTML.
 - Database errors are logged server-side rather than displayed to visitors.
 
@@ -28,7 +30,7 @@ A small learning project demonstrating user registration, password verification 
 If you already have a `register` table, back it up first, then widen the password column:
 
 ```sql
-ALTER TABLE register MODIFY password VARCHAR(255) NOT NULL;
+ALTER TABLE register MODIFY password VARCHAR(255) NOT NULL;\n-- Check for duplicate usernames before adding this constraint.\nALTER TABLE register ADD UNIQUE KEY uq_register_username (username);
 ```
 
 The login code supports the old 32-character MD5 representation as a one-time transition. It upgrades each legacy hash only after the user supplies the correct password. Do not publish database dumps containing real user records or hashes.
