@@ -8,7 +8,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim((string) ($_POST['username'] ?? ''));
     $passwordInput = (string) ($_POST['password'] ?? '');
 
-    if ($username === '' || $passwordInput === '') {
+    if (!csrf_is_valid()) {
+        $errorMessage = 'Your session token is invalid. Refresh the page and try again.';
+    } elseif ($username === '' || $passwordInput === '') {
         $errorMessage = 'Please enter both your username and password.';
     } else {
         $stmt = mysqli_prepare($conn, 'SELECT id, password FROM register WHERE username = ? LIMIT 1');
@@ -39,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($valid) {
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = (int) $user['id'];
-                header('Location: index.php');
+                header('Location: loggedin.php');
                 exit;
             }
             $errorMessage = 'Invalid username or password.';
@@ -66,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <p role="alert"><?php echo htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8'); ?></p>
 <?php endif; ?>
 <form action="login.php" method="post">
+    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
     <fieldset>
         <legend>Sign in</legend>
         <label for="username">Username</label><br>
