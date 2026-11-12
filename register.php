@@ -8,7 +8,7 @@ $firstname = trim((string) ($_POST['firstname'] ?? ''));
 $surname = trim((string) ($_POST['surname'] ?? ''));
 
 if (loggedin()) {
-    header('Location: index.php');
+    header('Location: loggedin.php');
     exit;
 }
 
@@ -16,7 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $passwordInput = (string) ($_POST['password'] ?? '');
     $passwordAgain = (string) ($_POST['password_again'] ?? '');
 
-    if ($username === '' || $firstname === '' || $surname === '' || $passwordInput === '' || $passwordAgain === '') {
+    if (!csrf_is_valid()) {
+        $errorMessage = 'Your session token is invalid. Refresh the page and try again.';
+    } elseif ($username === '' || $firstname === '' || $surname === '' || $passwordInput === '' || $passwordAgain === '') {
         $errorMessage = 'All fields are required.';
     } elseif (mb_strlen($username) > 30 || mb_strlen($firstname) > 40 || mb_strlen($surname) > 40) {
         $errorMessage = 'One or more fields exceed the allowed length.';
@@ -73,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <p role="alert"><?php echo htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8'); ?></p>
 <?php endif; ?>
 <form action="register.php" method="post">
+    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
     <fieldset>
         <legend>Registration details</legend>
         <label for="username">Username</label><br>
